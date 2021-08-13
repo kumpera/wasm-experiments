@@ -1,0 +1,1 @@
+wasmcc  module.c -o module.wasm -Wl,--allow-undefined  && wasm2wat module.wasm -o mod.txt
