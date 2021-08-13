@@ -7,7 +7,7 @@
 // #include "wasmer.h"
 static wasm_memory_t *the_memory;
 
-static const char *file_name = "module.wasm";
+static const char *file_name = "asm-script/build/optimized.wasm";
 
 static char* kind_to_name[] = {
   "WASM_EXTERN_FUNC",
@@ -16,19 +16,35 @@ static char* kind_to_name[] = {
   "WASM_EXTERN_MEMORY",
 };
 
-wasm_trap_t* func_adapter_1(const wasm_val_vec_t* args, wasm_val_vec_t* results)
+wasm_trap_t* func_adapter_read_feature(const wasm_val_vec_t* args, wasm_val_vec_t* results)
 {
-    //this is a (i32) -> () func
-    
-    printf("yay got called with %d\n", args->data[0].of.i32);
+    //lets extract those strings now
+    printf("read_feature\n");
+    wasm_val_t val = WASM_F32_VAL(1);
+    wasm_val_copy(&results->data[0], &val);
+
     return NULL;
 }
 
-wasm_trap_t* func_adapter_2(const wasm_val_vec_t* args, wasm_val_vec_t* results)
+wasm_trap_t* func_adapter_write_feature(const wasm_val_vec_t* args, wasm_val_vec_t* results)
 {
-    //this is a (i32) -> () func
-    printf("print string %d %s\n", args->data[0].of.i32, wasm_memory_data(the_memory) + args->data[0].of.i32);
+    printf("write_feature\n");
     return NULL;
+}
+
+wasm_trap_t* func_adapter_abort(const wasm_val_vec_t* args, wasm_val_vec_t* results)
+{
+    printf("abort!\n");
+    return NULL;
+}
+
+static wasm_functype_t* wasm_functype_new_4_0(
+  wasm_valtype_t* p1, wasm_valtype_t* p2, wasm_valtype_t* p3, wasm_valtype_t* p4) {
+  wasm_valtype_t* ps[4] = {p1, p2, p3, p4};
+  wasm_valtype_vec_t params, results;
+  wasm_valtype_vec_new(&params, 4, ps);
+  wasm_valtype_vec_new_empty(&results);
+  return wasm_functype_new(&params, &results);
 }
 
 int main() {
@@ -74,7 +90,10 @@ int main() {
 
 
     printf("module compiled and ready, but lets figure out exports\n");
-    int extern_func_idx = -1;
+    int __process_example_idx = -1;
+    // int __new_idx = -1;
+    // int __collect = -1;
+
     wasm_exporttype_vec_t vec;
     wasm_module_exports(mod, &vec);
     if(vec.size == 0) {
@@ -83,20 +102,31 @@ int main() {
     }    
 
     printf("got %zu exports\n", vec.size);
+    char buffer[1024];
     for(int i = 0; i <vec.size; ++i) {
         wasm_exporttype_t *exp = vec.data[i];
 
         const wasm_externtype_t *type = wasm_exporttype_type(exp);
         const wasm_name_t *name = wasm_exporttype_name(exp);
-        printf("[%d] kind %d(%s) name %s\n", i, wasm_externtype_kind(type), kind_to_name[wasm_externtype_kind(type)], name->data);
-        if(wasm_externtype_kind(type) == WASM_EXTERN_FUNC && !strncmp("transform", name->data, name->size)) {
-            printf("found our puppy at %d\n", i);
-            extern_func_idx = i;
+
+        memcpy(buffer, name->data, name->size);
+        buffer[name->size] = 0;
+        
+        printf("[%d] kind %d(%s) name %s\n", i, 
+        wasm_externtype_kind(type), 
+        kind_to_name[wasm_externtype_kind(type)], 
+        buffer);
+
+        if(wasm_externtype_kind(type) == WASM_EXTERN_FUNC) {
+            if (!strncmp("process_example", name->data, name->size)) {
+                printf("found our puppy at %d\n", i);
+                __process_example_idx = i;
+            }
         }
     }
     wasm_exporttype_vec_delete(&vec);
 
-    if(extern_func_idx == -1) {
+    if(__process_example_idx == -1) {
         printf("didn't find export we want\n");
         return 1;
     }
@@ -114,20 +144,32 @@ int main() {
         const wasm_name_t *impl_mod =  wasm_importtype_module(imp);
         const wasm_name_t *impl_name =  wasm_importtype_name(imp);
 
-        printf(" import [%d] module:%s name:%s\n", i, impl_mod->data,impl_name->data);
-// WASM_API_EXTERN const wasm_externtype_t* wasm_importtype_type(const wasm_importtype_t*);
+
+        memcpy(buffer, impl_name->data, impl_name->size);
+        buffer[impl_name->size] = 0;
+
+        printf(" import [%d] module:%s name:%s\n", i, impl_mod->data, buffer);
     }
 
     //not gonna do proper linking, just inject our export
+    wasm_functype_t* read_sig = wasm_functype_new_2_1(
+        wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_f32());
+    wasm_functype_t* write_sig = wasm_functype_new_3_0(
+        wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_f32());
+    wasm_functype_t* abort_sig = wasm_functype_new_4_0(
+        wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32());
 
-    wasm_functype_t* export_1 = wasm_functype_new_1_0(wasm_valtype_new_i32());
-    wasm_func_t* export_1_func = wasm_func_new(store, export_1, func_adapter_1);
-    wasm_func_t* export_2_func = wasm_func_new(store, export_1, func_adapter_2);
-    wasm_functype_delete(export_1);
+    wasm_func_t* export_1_func = wasm_func_new(store, read_sig, func_adapter_read_feature);
+    wasm_func_t* export_2_func = wasm_func_new(store, write_sig, func_adapter_write_feature);
+    wasm_func_t* export_3_func = wasm_func_new(store, abort_sig, func_adapter_abort);
+    wasm_functype_delete(read_sig);
+    wasm_functype_delete(write_sig);
+    wasm_functype_delete(abort_sig);
 
     wasm_extern_t* externs[] = {
         wasm_func_as_extern(export_1_func),
-        wasm_func_as_extern(export_2_func)
+        wasm_func_as_extern(export_2_func),
+        wasm_func_as_extern(export_3_func),
     };
 
 
@@ -151,13 +193,13 @@ int main() {
     
     the_memory = wasm_extern_as_memory(exports.data[0]);
 
-    wasm_func_t* func = wasm_extern_as_func(exports.data[extern_func_idx]);
+    wasm_func_t* func = wasm_extern_as_func(exports.data[__process_example_idx]);
     wasm_extern_vec_delete(&exports);
 
-    wasm_val_t arguments[2] = { WASM_I32_VAL(10), WASM_I32_VAL(20) };
-    wasm_val_t results[] = { WASM_INIT_VAL };
-    wasm_val_vec_t arguments_as_array = WASM_ARRAY_VEC(arguments);
-    wasm_val_vec_t results_as_array = WASM_ARRAY_VEC(results);
+    wasm_val_vec_t arguments_as_array;
+    wasm_val_vec_t results_as_array;
+    wasm_val_vec_new_empty(&arguments_as_array);
+    wasm_val_vec_new_empty(&results_as_array);
 
     wasm_trap_t* trap = wasm_func_call(func, &arguments_as_array, &results_as_array);
     if(trap) {
@@ -169,7 +211,7 @@ int main() {
         return 1;
     }
 
-    printf("the result is %d\n", results[0].of.i32);
+    // printf("the result is %d\n", results[0].of.i32);
 
     printf("done \n");
 
