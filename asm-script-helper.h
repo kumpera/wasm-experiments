@@ -1,10 +1,10 @@
 #pragma once
 
-
-#include "wasmer_wasm.h"
 #include <string>
 #include <unordered_map>
 #include <functional>
+
+#include <wasmer.h>
 
 class WasmScriptRuntime
 {

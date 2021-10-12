@@ -1,4 +1,3 @@
-#include "asm-script-helper.h"
 #include <functional>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -7,10 +6,11 @@
 #include <vector>
 #include <iconv.h>
 
+#include "asm-script-helper.h"
 
 WasmScriptRuntime::WasmScriptRuntime(): mod(nullptr), memory(nullptr) {
     wasm_config_t* config = wasm_config_new();
-    wasm_config_set_engine(config, JIT);
+    wasm_config_set_engine(config, UNIVERSAL);
     wasm_config_set_compiler(config, CRANELIFT);
 
     // my build doesn't have this

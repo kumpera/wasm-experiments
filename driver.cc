@@ -1,7 +1,5 @@
 #include <sys/stat.h>
 #include <stdio.h>
-
-#include "wasmer_wasm.h"
 #include "asm-script-helper.h"
 
 static const char *file_name = "asm-script/build/optimized.wasm";
