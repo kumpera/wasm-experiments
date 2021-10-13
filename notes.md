@@ -9,6 +9,13 @@ docker build -t wasmy:dev .
 
 docker run --rm -it -v $(pwd):/project wasmy:dev bash
 
+### In case you don't want to deal with building the whole world to get the AssemblyScript example built, do the following:
+
+```
+mkdir asm-script/build
+cp optimized.wasm asm-script/build
+``` 
+
 From the shell, run `make run`
 
 ## TODO
