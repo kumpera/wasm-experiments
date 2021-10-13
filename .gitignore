@@ -1,0 +1,4 @@
+asm-script/node_modules
+asm-script/build
+*.o
+wasmy

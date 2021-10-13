@@ -11,6 +11,7 @@ RUN apt-get update && \
         ca-certificates \
         build-essential cmake g++ make wget ninja-build curl valgrind gdb \
         git python3 python3-pip \
+        nodejs npm \
         sudo \
         && apt-get clean autoclean \
         && apt-get autoremove -y \
