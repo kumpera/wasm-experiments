@@ -9,7 +9,7 @@ class WasmBindings : public WasmScriptRuntime {
         //lets extract those strings now
         char *ns = get_string(args->data[0].of.i32);
         char *name = get_string(args->data[1].of.i32);
-        printf("print string %s::%s\n", ns, name);
+        printf("read_feature %s::%s\n", ns, name);
         wasm_val_t val = WASM_F32_VAL(1);
         wasm_val_copy(&results->data[0], &val);
         free(ns);
@@ -25,11 +25,12 @@ class WasmBindings : public WasmScriptRuntime {
         printf("write_feature %s::%s -> %f\n", ns, name, val);
         free(ns);
         free(name);
+
         return nullptr;
     }
 
     wasm_trap_t* abort(const wasm_val_vec_t* args, wasm_val_vec_t* results) {
-        printf("ABORT!!!\n"); //FIXME should return a trap
+        printf("Abort called\n"); //FIXME should return a trap
         return nullptr;
     }
 
@@ -51,8 +52,8 @@ int main() {
 
     wasm_val_vec_t args = WASM_EMPTY_VEC;
     wasm_val_vec_t rets = WASM_EMPTY_VEC;
-
     wasm_trap_t* trap = rt.invoke("process_example", args, rets);
+
     if(trap) {
         wasm_message_t msg;
         wasm_trap_message(trap, &msg);

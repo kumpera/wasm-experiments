@@ -1,3 +1,4 @@
+#include <cstring>
 #include <functional>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -13,20 +14,17 @@ WasmScriptRuntime::WasmScriptRuntime(): mod(nullptr), memory(nullptr) {
     wasm_config_set_engine(config, UNIVERSAL);
     wasm_config_set_compiler(config, CRANELIFT);
 
-    // my build doesn't have this
-    // wasmer_features_t* features = wasmer_features_new();
-    // wasmer_features_multi_value(features, TRUE);
-    // wasmer_config_set_features(config, features);
-    // wasmer_features_delete(features);
-
     engine = wasm_engine_new_with_config(config);
     store = wasm_store_new(engine);
+    ins_exports = WASM_EMPTY_VEC;
 }
 
 WasmScriptRuntime::~WasmScriptRuntime() 
 {
-    // wasm_module_delete(mod);
-    // wasm_instance_delete(instance);
+    wasm_extern_vec_delete(&ins_exports);
+
+    wasm_module_delete(mod);
+    wasm_instance_delete(instance);
     wasm_store_delete(store);
     wasm_engine_delete(engine);
 }
@@ -38,6 +36,7 @@ void WasmScriptRuntime::load_script(const char *file_name)
     }
     FILE *f = fopen(file_name, "r");
     if(!f) {
+        printf("FILE NOT FOUND %s\n", file_name);
         throw new std::runtime_error("failed to open script file");
     }
     struct stat file_s;
@@ -155,17 +154,14 @@ void WasmScriptRuntime::instantiate() {
     wasm_trap_t *traps = NULL;
 
 
-    wasm_instance_t *instance = wasm_instance_new(store, mod, &imports, &traps);
+    instance = wasm_instance_new(store, mod, &imports, &traps);
     if(!instance) {
         printf("failed to create instance, do we have a trap? %p\n", traps);
         throw new std::runtime_error("failed to instatiate module");
     }
 
-    wasm_extern_vec_t ins_exports;
+    ;
     wasm_instance_exports(instance, &ins_exports);
-    // printf("module has %zu exports\n", ins_exports.size);
-
-    int memory_idx = -1;
 
     wasm_exporttype_vec_t mod_exports;
     wasm_module_exports(mod, &mod_exports);
@@ -185,19 +181,18 @@ void WasmScriptRuntime::instantiate() {
 
         if(wasm_externtype_kind(type) == WASM_EXTERN_MEMORY) {
            memory = wasm_extern_as_memory(ins_exports.data[i]);
-        }
-        else if(wasm_externtype_kind(type) == WASM_EXTERN_FUNC) {
+        } else if(wasm_externtype_kind(type) == WASM_EXTERN_FUNC) {
             exported_functions.emplace(std::make_pair(fun_name, wasm_extern_as_func(ins_exports.data[i])));
         }
     }
     wasm_exporttype_vec_delete(&mod_exports);
-    wasm_extern_vec_delete(&ins_exports);
 }
 
 wasm_trap_t* WasmScriptRuntime::invoke(const std::string &name, const wasm_val_vec_t& args, wasm_val_vec_t &results)
 {
     auto reg = exported_functions.find(name);
     if(reg == exported_functions.end()) {
+        printf("missing\n");
         throw new std::runtime_error("Could not find exported function " + name);
     }
 
@@ -207,7 +202,6 @@ wasm_trap_t* WasmScriptRuntime::invoke(const std::string &name, const wasm_val_v
 
 #define ID_OFFSET -8
 #define SIZE_OFFSET -4
-
 
 #define ARRAYBUFFER_ID 0
 #define STRING_ID 1
@@ -223,6 +217,7 @@ char* WasmScriptRuntime::get_string(int ptr)
         printf("ptr too small\n");
         return NULL;
     }
+
     //TODO bounds check
     size_t mem_size = wasm_memory_data_size(memory);
     if (ptr > mem_size) {
@@ -231,9 +226,7 @@ char* WasmScriptRuntime::get_string(int ptr)
     }
 
     const char *object_base = wasm_memory_data(memory) + ptr;
-    // printf("get_string %d mem: %p\n", ptr, the_memory);
     int type_tag = *(int*)(object_base + ID_OFFSET);
-    // printf("type tag is %d\n", type_tag);
 
     if(type_tag != STRING_ID) {
         printf("bad object tag\n");

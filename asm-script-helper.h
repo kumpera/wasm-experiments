@@ -19,7 +19,9 @@ class WasmScriptRuntime
     wasm_engine_t* engine;
     wasm_store_t* store;
     wasm_module_t *mod;
+    wasm_instance_t *instance;
     wasm_memory_t *memory;
+    wasm_extern_vec_t ins_exports; //must keep it alive or all stuff we peel from it becomes invalid
     std::unordered_map<std::string, wasm_func_t*> exported_functions;
     std::unordered_map<std::string, registered_function> registered_functions;
 
