@@ -1,0 +1,4 @@
+[submodule "external/vowpal_wabbit"]
+	path = external/vowpal_wabbit
+	url = https://github.com/kumpera/vowpal_wabbit.git
+	branch = wasm_integration

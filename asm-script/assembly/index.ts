@@ -4,6 +4,6 @@ export declare namespace vw {
 }
 
 export function process_example() : void {
-  var f = vw.read_feature("A", "x");
-  vw.write_feature("A", "y", Math.log(f + 1) as f32);
+  var f = vw.read_feature("f", "t1");
+  vw.write_feature("f", "t1000", Math.log(f + 1) as f32);
 }
